@@ -1,0 +1,28 @@
+{
+  "private": true,
+  "scripts": {
+    "build": "slidev build",
+    "build-gha": "slidev build --base /ultimate-docker-image",
+    "dev": "slidev",
+    "export": "slidev export",
+    "export-pdf": "slidev export --with-clicks --format pdf --output dist/index.pdf"
+  },
+  "dependencies": {
+    "@slidev/cli": "^0.49.16",
+    "@slidev/theme-apple-basic": "^0.25.1",
+    "@slidev/theme-default": "*",
+    "@slidev/theme-seriph": "*",
+    "slidev-theme-dracula": "^0.2.0"
+  },
+  "name": "kotlin-spring",
+  "devDependencies": {
+    "@iconify-json/flat-color-icons": "^1.1.10",
+    "@iconify-json/fxemoji": "^1.1.8",
+    "@iconify-json/icon-park": "^1.1.13",
+    "@iconify-json/logos": "^1.1.43",
+    "@iconify-json/noto-v1": "^1.1.11",
+    "@iconify-json/skill-icons": "^1.1.8",
+    "@iconify-json/twemoji": "^1.1.15",
+    "playwright-chromium": "^1.45.1"
+  }
+}

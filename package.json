@@ -8,7 +8,7 @@
     "export-pdf": "slidev export --with-clicks --format pdf --output dist/index.pdf"
   },
   "dependencies": {
-    "@slidev/cli": "^0.49.16",
+    "@slidev/cli": "^0.49.17",
     "@slidev/theme-apple-basic": "^0.25.1",
     "@slidev/theme-default": "*",
     "@slidev/theme-seriph": "*",
@@ -21,8 +21,8 @@
     "@iconify-json/icon-park": "^1.1.13",
     "@iconify-json/logos": "^1.1.43",
     "@iconify-json/noto-v1": "^1.1.11",
-    "@iconify-json/skill-icons": "^1.1.8",
+    "@iconify-json/skill-icons": "^1.1.9",
     "@iconify-json/twemoji": "^1.1.15",
-    "playwright-chromium": "^1.45.1"
+    "playwright-chromium": "^1.45.2"
   }
 }

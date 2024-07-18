@@ -336,7 +336,7 @@ Is there a way to optimize it?
 
 # Layers!
 
-```docker {1-4|6|8,9|10|12,6|15-18|14}
+```docker {1-4|6|8,9|10|12,6|15-18|14}{maxHeight:'180px'}
 FROM bellsoft/liberica-runtime-container:jdk-musl as builder
 
 COPY . /app
@@ -356,3 +356,270 @@ COPY --from=optimizer /app/app/spring-boot-loader/ ./
 COPY --from=optimizer /app/app/snapshot-dependencies/ ./
 COPY --from=optimizer /app/app/application/ ./
 ```
+
+- Build image
+
+<v-click at="1">
+
+- Introduce new "optimizer" stage
+
+</v-click>
+<v-click at="3">
+
+- Extract the jar to layered structure
+
+</v-click>
+<v-click at="5">
+
+- Copy layers
+
+</v-click>
+
+---
+
+# Layers
+
+Because Spring Boot jar is complex!
+
+```plain      
+Usage:
+  java -Djarmode=tools -jar my-app.jar
+
+Available commands:
+  extract      Extract the contents from the jar
+  list-layers  List layers from the jar that can be extracted
+```
+
+---
+
+# Layers
+
+```plain {1|2|5-9|11-16|17|20,21|22|24-29|31,32|35|35,37-39|40|41|155}{maxHeight:'200px'}
+app
+├── application
+│   ├── BOOT-INF
+│   │   ├── classes
+│   │   │   ├── application-mysql.properties
+│   │   │   ├── application-postgres.properties
+│   │   │   ├── application.properties
+│   │   │   ├── banner.txt
+│   │   │   ├── db
+│   │   │   │   ├── ...
+│   │   │   ├── org
+│   │   │   │   └── springframework
+│   │   │   │       ├── aop
+│   │   │   │       │   └── aspectj
+│   │   │   │       │       └── annotation
+│   │   │   │       │           └── AnnotationAwareAspectJAutoProxyCreator__BeanDefinitions.class
+|   |   |   |       ├── com/github/asm0dey/...
+│   │   │   ├── static
+│   │   │   ....
+│   │   ├── classpath.idx
+│   │   └── layers.idx
+│   └── META-INF
+│       ├── MANIFEST.MF
+│       ├── native-image
+│       │   ├── ch.qos.logback
+│       │   │   └── logback-classic
+│       │   │       └── 1.5.6
+│       │   │           ├── reflect-config.json
+│       │   │           └── resource-config.json
+│       │   ├── ...
+│       ├── sbom
+│       │   └── application.cdx.json
+│       └── services
+│           └── java.nio.file.spi.FileSystemProvider
+├── dependencies
+│   └── BOOT-INF
+│       └── lib
+│           ├── angus-activation-2.0.2.jar
+│           ├── ...
+├── snapshot-dependencies
+└── spring-boot-loader
+    └── org
+        └── springframework
+            └── boot
+                └── loader
+                    ├── jar
+                    │   ├── ManifestInfo.class
+                    │   ├── MetaInfVersionsInfo.class
+                    │   ├── NestedJarFile$JarEntriesEnumeration.class
+                    │   ├── NestedJarFile$JarEntryInflaterInputStream.class
+                    │   ├── NestedJarFile$JarEntryInputStream.class
+                    │   ├── NestedJarFile$NestedJarEntry.class
+                    │   ├── NestedJarFile$RawZipDataInputStream.class
+                    │   ├── NestedJarFile$ZipContentEntriesSpliterator.class
+                    │   ├── NestedJarFile.class
+                    │   ├── NestedJarFileResources.class
+                    │   ├── SecurityInfo.class
+                    │   └── ZipInflaterInputStream.class
+                    ├── jarmode
+                    │   └── JarMode.class
+                    ├── launch
+                    │   ├── Archive$Entry.class
+                    │   ├── Archive.class
+                    │   ├── ClassPathIndexFile.class
+                    │   ├── ExecutableArchiveLauncher.class
+                    │   ├── ExplodedArchive$FileArchiveEntry.class
+                    │   ├── ExplodedArchive.class
+                    │   ├── JarFileArchive$JarArchiveEntry.class
+                    │   ├── JarFileArchive.class
+                    │   ├── JarLauncher.class
+                    │   ├── JarModeRunner.class
+                    │   ├── LaunchedClassLoader$DefinePackageCallType.class
+                    │   ├── LaunchedClassLoader.class
+                    │   ├── Launcher.class
+                    │   ├── PropertiesLauncher$Instantiator$Using.class
+                    │   ├── PropertiesLauncher$Instantiator.class
+                    │   ├── PropertiesLauncher.class
+                    │   ├── SystemPropertyUtils.class
+                    │   └── WarLauncher.class
+                    ├── log
+                    │   ├── DebugLogger$DisabledDebugLogger.class
+                    │   ├── DebugLogger$SystemErrDebugLogger.class
+                    │   └── DebugLogger.class
+                    ├── net
+                    │   ├── protocol
+                    │   │   ├── Handlers.class
+                    │   │   ├── jar
+                    │   │   │   ├── Canonicalizer.class
+                    │   │   │   ├── Handler.class
+                    │   │   │   ├── JarFileUrlKey.class
+                    │   │   │   ├── JarUrl.class
+                    │   │   │   ├── JarUrlClassLoader$OptimizedEnumeration.class
+                    │   │   │   ├── JarUrlClassLoader.class
+                    │   │   │   ├── JarUrlConnection$ConnectionInputStream.class
+                    │   │   │   ├── JarUrlConnection$EmptyUrlStreamHandler.class
+                    │   │   │   ├── JarUrlConnection.class
+                    │   │   │   ├── LazyDelegatingInputStream.class
+                    │   │   │   ├── Optimizations.class
+                    │   │   │   ├── UrlJarEntry.class
+                    │   │   │   ├── UrlJarFile.class
+                    │   │   │   ├── UrlJarFileFactory.class
+                    │   │   │   ├── UrlJarFiles$Cache.class
+                    │   │   │   ├── UrlJarFiles.class
+                    │   │   │   ├── UrlJarManifest$ManifestSupplier.class
+                    │   │   │   ├── UrlJarManifest.class
+                    │   │   │   └── UrlNestedJarFile.class
+                    │   │   └── nested
+                    │   │       ├── Handler.class
+                    │   │       ├── NestedLocation.class
+                    │   │       ├── NestedUrlConnection$ConnectionInputStream.class
+                    │   │       ├── NestedUrlConnection.class
+                    │   │       └── NestedUrlConnectionResources.class
+                    │   └── util
+                    │       └── UrlDecoder.class
+                    ├── nio
+                    │   └── file
+                    │       ├── NestedByteChannel$Resources.class
+                    │       ├── NestedByteChannel.class
+                    │       ├── NestedFileStore.class
+                    │       ├── NestedFileSystem.class
+                    │       ├── NestedFileSystemProvider.class
+                    │       ├── NestedPath.class
+                    │       └── UriPathEncoder.class
+                    ├── ref
+                    │   ├── Cleaner.class
+                    │   └── DefaultCleaner.class
+                    └── zip
+                        ├── ByteArrayDataBlock.class
+                        ├── CloseableDataBlock.class
+                        ├── DataBlock.class
+                        ├── DataBlockInputStream.class
+                        ├── FileDataBlock$FileAccess.class
+                        ├── FileDataBlock$Tracker$1.class
+                        ├── FileDataBlock$Tracker.class
+                        ├── FileDataBlock.class
+                        ├── NameOffsetLookups.class
+                        ├── VirtualDataBlock.class
+                        ├── VirtualZipDataBlock$DataPart.class
+                        ├── VirtualZipDataBlock.class
+                        ├── Zip64EndOfCentralDirectoryLocator.class
+                        ├── Zip64EndOfCentralDirectoryRecord.class
+                        ├── ZipCentralDirectoryFileHeaderRecord.class
+                        ├── ZipContent$Entry.class
+                        ├── ZipContent$Kind.class
+                        ├── ZipContent$Loader.class
+                        ├── ZipContent$Source.class
+                        ├── ZipContent.class
+                        ├── ZipDataDescriptorRecord.class
+                        ├── ZipEndOfCentralDirectoryRecord$Located.class
+                        ├── ZipEndOfCentralDirectoryRecord.class
+                        ├── ZipLocalFileHeaderRecord.class
+                        ├── ZipString$CompareType.class
+                        └── ZipString.class
+
+212 directories, 525 files
+```
+
+---
+
+# Layered image structure
+
+```plain {1-7|5|4|3|2|all}{maxHeight:'180px'}
+ID         TAG                                               SIZE      COMMAND
+618743f6a2 layers:latest                                     2.96MiB   COPY dir:e0faa63b9654445b16f92e448ea614724879b78e0dc07eb0191
+9cca3273f0                                                   0B        COPY dir:acd0d0ac1f7df30859922a3cc7ed781663b36acddf4348771e3
+fe123ee16e                                                   382.56kiB COPY dir:01225d3c4ef6d018ae82263401e55afa676d0c336b74d58e845
+dede9bac3d                                                   57.69MiB  COPY dir:755815d928fd961d6390c53529fa7d29169f1f3c9ae42f387fd
+65e3fb4cbf                                                   0B        ENTRYPOINT ["java" "org.springframework.boot.loader.launch.J
+7130fa5864 bellsoft/liberica-runtime-container:jre-slim-musl 126.80MiB |18 CDS=no DESCRIPTION=Alpaquita Stream Musl based image wit
+<missing>                                                    0B        ENV JAVA_HOME="/usr/lib/jvm/liberica${JAVA_RELEASE}-containe
+<missing>                                                    0B        ENV LANG=en_US.UTF-8 LANGUAGE=en_US:en
+<missing>                                                    0B        LABEL org.opencontainers.image.description="$DESCRIPTION"
+<missing>                                                    0B        LABEL org.opencontainers.image.authors="$MAINTAINER"
+<missing>                                                    0B        LABEL maintainer="$MAINTAINER"
+<missing>                                                    0B        ARG CDS DESCRIPTION JAVA_RELEASE MAINTAINER REMOVE_APK_TOOLS
+<missing>                                                    0B        ARG CDS JAVA_RELEASE MAINTAINER REMOVE_APK_TOOLS
+<missing>                                                    0B        ARG CDS JAVA_RELEASE REMOVE_APK_TOOLS
+<missing>                                                    0B        ARG CDS JAVA_RELEASE
+<missing>                                                    0B        ARG JAVA_RELEASE
+```
+
+<v-click at="1">
+
+- Dependencies: ~57.7MiB
+
+</v-click>
+<v-click at="2">
+
+- Launcher: 382.56kiB
+
+</v-click>
+<v-click at="4">
+
+- Application: ~3MiB
+
+</v-click>
+<v-click at="5">
+
+Together: ~61MiB
+
+</v-click>
+
+---
+layout: statement
+image: /cap.png
+---
+
+# 61.0MiB > 58.8Mib!
+
+## 😱
+
+---
+
+# What are we optimizing?
+
+Pull size!
+
+Pull size here is usually only around 3MiB!
+
+---
+layout: statement
+---
+
+# We just reinvented how the BellSoft's buildpack works!
+
+And it is amazing
+
+---

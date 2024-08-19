@@ -10,6 +10,8 @@ remoteAssets: true
 colorSchema: 'dark'
 layout: cover
 canvasWidth: 800
+addons:
+  - "@katzumi/slidev-addon-qrcode"
 ---
 
 # Crafting the Ultimate Docker Image for Spring Applications
@@ -53,7 +55,13 @@ Liberica is the JDK officially recommended by <logos-spring-icon />
 
 ::right::
 
-<img src="/news.png" class="invert rounded self-center"/>
+<!-- <img src="/news.png" class="invert rounded self-center"/> -->
+<QRCode
+  value="https://bell-sw.com/blog/"
+  :width="300"
+  :height="300"
+  color="fff"
+/>
 
 ---
 
@@ -623,3 +631,48 @@ layout: statement
 And it is amazing
 
 ---
+
+# Diversion: buildpacks
+
+https://paketo.io/
+
+Trivial usage:
+
+```bash {1|2|3|4}
+/usr/sbin/pack build petclinic \
+  --builder bellsoft/buildpacks.builder \
+  --path . \
+  -e BP_JVM_VERSION=21
+```
+
+---
+
+# Result
+
+``` {7|5|4|3}
+ID         TAG              SIZE      COMMAND                                                                               │
+2774e3f214 petclinic:latest 0B        Buildpacks Process Types                                                              │
+<missing>                   1.44kiB   Buildpacks Launcher Config                                                            │
+<missing>                   2.44MiB   Buildpacks Application Launcher                                                       │
+<missing>                   59.17MiB  Application Layer                                                                     │
+<missing>                   729.21kiB Software Bill-of-Materials                                                            │
+<missing>                   97.87MiB  Layer: 'jre', Created by buildpack: bellsoft/buildpacks/liberica@1.1.0                │
+<missing>                   200.00B   Layer: 'java-security-properties', Created by buildpack: bellsoft/buildpacks/liberica@│
+<missing>                   4.27MiB   Layer: 'helper', Created by buildpack: bellsoft/buildpacks/liberica@1.1.0             │
+<missing>                   2.97kiB                                                                                         │
+<missing>                   7.48MiB                                                                                         │
+```
+
+---
+
+# Buildpacks
+
+Why do we need them?
+
+> * Buildpacks transform your application source code into container images
+> * The Paketo open source project provides production-ready buildpacks for the most popular languages and frameworks
+> * Use Paketo Buildpacks to easily build your apps and keep them updated 
+
+- Reminds of s2i images
+- Build better than default
+- Spring-aware

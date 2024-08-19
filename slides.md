@@ -10,8 +10,9 @@ remoteAssets: true
 colorSchema: 'dark'
 layout: cover
 canvasWidth: 800
-addons:
-  - "@katzumi/slidev-addon-qrcode"
+fonts:
+  mono: "Monaspace Krypton"
+  fallback: true
 ---
 
 # Crafting the Ultimate Docker Image for Spring Applications
@@ -55,13 +56,8 @@ Liberica is the JDK officially recommended by <logos-spring-icon />
 
 ::right::
 
-<!-- <img src="/news.png" class="invert rounded self-center"/> -->
-<QRCode
-  value="https://bell-sw.com/blog/"
-  :width="300"
-  :height="300"
-  color="fff"
-/>
+<img src="/news.png" class="invert rounded self-center"/>
+
 
 ---
 
@@ -676,3 +672,57 @@ Why do we need them?
 - Reminds of s2i images
 - Build better than default
 - Spring-aware
+
+---
+layout: statement
+---
+
+# Is this all?
+
+We've optimized pull/push size, right?
+
+---
+
+# Optimization is multidimensional
+
+When startup time is more important…
+
+There are several solutions for the Spring application startup time
+
+1. Class Data Sharing (CDS)
+2. Coordinated Restore at Checkpoint
+3. Native Image
+
+---
+
+# Class Data Sharing (CDS)
+
+* **When**: Java 5 (!)
+* **Why**: reduce the startup and memory footprint of multiple JVM instances running on the same host
+* **How**: stores data in an archive
+
+How does it help us?
+
+<v-click>It does not! <twemoji-troll /></v-click>
+<v-click>But</v-click>
+
+---
+
+# Application Class Data Sharing  
+
+* **When**: Java 10
+* **Why**: add application classes to the archive
+
+And then:
+
+* **When**: Java 13, [JEP 350](https://openjdk.org/jeps/350)
+* **Why**: allow addition of classes into the archive upon app exit!
+
+And this helps! How?
+
+---
+
+# How to use AppCDS with Spring?
+
+* `-XX:ArchiveClassesAtExit=application.jsa` to create an archive
+* `-Dspring.context.exit=onRefresh` to start and immediately exit the application

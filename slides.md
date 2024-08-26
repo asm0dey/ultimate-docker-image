@@ -10,9 +10,6 @@ remoteAssets: true
 colorSchema: 'dark'
 layout: cover
 canvasWidth: 800
-fonts:
-  mono: "Monaspace Krypton"
-  fallback: true
 ---
 
 # Crafting the Ultimate Docker Image for Spring Applications
@@ -726,3 +723,257 @@ And this helps! How?
 
 * `-XX:ArchiveClassesAtExit=application.jsa` to create an archive
 * `-Dspring.context.exit=onRefresh` to start and immediately exit the application
+
+NB:
+1. Use the same JDK
+2. Use the same arguments
+
+---
+
+# And even better!
+
+Spring AOT
+
+Add `-Dspring.aot.enabled=true`
+
+Even more classes!!!
+
+---
+
+# Practice
+
+````md magic-move
+```docker {all|12}{maxHeight:'100px'}
+FROM bellsoft/liberica-runtime-container:jdk-musl as builder
+
+COPY . /app
+RUN cd /app && ./gradlew build -xtest
+
+FROM bellsoft/liberica-runtime-container:jre-slim-musl as optimizer
+
+COPY --from=builder /app/build/libs/spring-petclinic-3.3.0.jar /app/app.jar
+WORKDIR /app
+RUN java -Djarmode=tools -jar /app/app.jar extract --layers --launcher
+
+FROM bellsoft/liberica-runtime-container:jre-slim-musl as runner
+
+ENTRYPOINT ["java", "org.springframework.boot.loader.launch.JarLauncher"]
+COPY --from=optimizer /app/app/dependencies/ ./
+COPY --from=optimizer /app/app/spring-boot-loader/ ./
+COPY --from=optimizer /app/app/snapshot-dependencies/ ./
+COPY --from=optimizer /app/app/application/ ./
+```
+```docker {12|15-18}{maxHeight:'100px'}
+FROM bellsoft/liberica-runtime-container:jdk-musl as builder
+
+COPY . /app
+RUN cd /app && ./gradlew build -xtest
+
+FROM bellsoft/liberica-runtime-container:jre-slim-musl as optimizer
+
+COPY --from=builder /app/build/libs/spring-petclinic-3.3.0.jar /app/app.jar
+WORKDIR /app
+RUN java -Djarmode=tools -jar /app/app.jar extract --layers --launcher
+
+FROM bellsoft/liberica-runtime-container:jre-cds-slim-musl as runner
+
+ENTRYPOINT ["java", "org.springframework.boot.loader.launch.JarLauncher"]
+COPY --from=optimizer /app/app/dependencies/ ./
+COPY --from=optimizer /app/app/spring-boot-loader/ ./
+COPY --from=optimizer /app/app/snapshot-dependencies/ ./
+COPY --from=optimizer /app/app/application/ ./
+```
+```docker {9-12|4}{maxHeight:'100px'}
+#omitted
+FROM bellsoft/liberica-runtime-container:jre-cds-slim-musl as runner
+
+ENTRYPOINT ["java", "org.springframework.boot.loader.launch.JarLauncher"]
+COPY --from=optimizer /app/app/dependencies/ ./
+COPY --from=optimizer /app/app/spring-boot-loader/ ./
+COPY --from=optimizer /app/app/snapshot-dependencies/ ./
+COPY --from=optimizer /app/app/application/ ./
+RUN java -Dspring.aot.enabled=true \
+  -XX:ArchiveClassesAtExit=./application.jsa \
+  -Dspring.context.exit=onRefresh \
+  org.springframework.boot.loader.launch.JarLauncher
+```
+```docker {4-7|all}{maxHeight:'100px'}
+#omitted
+FROM bellsoft/liberica-runtime-container:jre-cds-slim-musl as runner
+
+ENTRYPOINT ["java", \
+            "-Dspring.aot.enabled=true", \
+            "-XX:SharedArchiveFile=application.jsa", \
+            "org.springframework.boot.loader.launch.JarLauncher"]
+COPY --from=optimizer /app/app/dependencies / ./
+COPY --from=optimizer /app/app/spring-boot-loader/ ./
+COPY --from=optimizer /app/app/snapshot-dependencies/ ./
+COPY --from=optimizer /app/app/application/ ./
+RUN java -Dspring.aot.enabled=true \
+  -XX:ArchiveClassesAtExit=./application.jsa \
+  -Dspring.context.exit=onRefresh \
+  org.springframework.boot.loader.launch.JarLauncher
+```
+````
+
+---
+
+# What does it cost ?
+
+```
+-r--r--r--         0:0      81 MB  ├── application.jsa
+```
+
+Which is not small at all!
+
+<v-click>But you're trading pull speed for startup speed</v-click>
+
+---
+layout: statement
+---
+
+# How much faster?
+
+## Up to 50-60%
+
+---
+
+# Pushing further with CRaC
+
+CRaC: Coordinated Restore at Checkpoint
+
+---
+
+In a perfect world ot should be:
+
+```docker {6,12|9,10|14-16}
+FROM bellsoft/liberica-runtime-container:jdk-musl as builder
+
+COPY . /app
+RUN cd /app && ./gradlew build
+
+FROM bellsoft/liberica-runtime-container:jre-crac-slim as optimizer
+
+COPY --from=builder /app/build/libs/spring-petclinic-3.3.0.jar /app/app.jar
+WORKDIR /app
+RUN java -Dspring.context.checkpoint=onRefresh -XX:CRaCCheckpointTo=/checkpoint -jar /app/app.jar
+
+FROM bellsoft/liberica-runtime-container:jre-crac-slim as runner
+
+ENTRYPOINT java -XX:CRaCRestoreFrom=/checkpoint
+COPY --from=optimizer /app/app.jar /app/app.jar
+COPY --from=optimizer /checkpoint /checkpoint
+```
+
+---
+
+# But in reality
+
+```
+#12 6.051       Suppressed: java.lang.RuntimeException: Native checkpoint failed.
+#12 6.051               at java.base/jdk.crac.Core.translateJVMExceptions(Core.java:114) ~[na:na]
+#12 6.051               at java.base/jdk.crac.Core.checkpointRestore1(Core.java:192) ~[na:na]
+#12 6.051               at java.base/jdk.crac.Core.checkpointRestore(Core.java:299) ~[na:na]
+#12 6.051               at java.base/jdk.crac.Core.checkpointRestore(Core.java:278) ~[na:na]
+#12 6.051               at java.base/javax.crac.Core.checkpointRestore(Core.java:73) ~[na:na]
+#12 6.051               at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103) ~[na:na]
+#12 6.051               at java.base/java.lang.reflect.Method.invoke(Method.java:580) ~[na:na]
+#12 6.051               at org.crac.Core$Compat.checkpointRestore(Core.java:141) ~[crac-1.4.0.jar!/:na]
+#12 6.051               ... 17 common frames omitted
+```
+
+---
+
+# CRaC is hard!
+
+Let's try to fix it with arcane magic
+
+````md magic-move
+```docker
+FROM bellsoft/liberica-runtime-container:jdk-musl as builder
+
+COPY . /app
+RUN cd /app && ./gradlew build
+
+FROM bellsoft/liberica-runtime-container:jre-crac-slim as optimizer
+
+COPY --from=builder /app/build/libs/spring-petclinic-3.3.0.jar /app/app.jar
+WORKDIR /app
+RUN java -Dspring.context.checkpoint=onRefresh -XX:CRaCCheckpointTo=/checkpoint -jar /app/app.jar
+
+FROM bellsoft/liberica-runtime-container:jre-crac-slim as runner
+
+ENTRYPOINT java -XX:CRaCRestoreFrom=/checkpoint
+COPY --from=optimizer /app/app.jar /app/app.jar
+COPY --from=optimizer /checkpoint /checkpoint
+```
+```docker {all|1|11}
+# syntax=docker/dockerfile:1-labs
+FROM bellsoft/liberica-runtime-container:jdk-musl as builder
+
+COPY . /app
+RUN cd /app && ./gradlew build -xtest
+
+FROM bellsoft/liberica-runtime-container:jre-crac-slim as optimizer
+
+COPY --from=builder /app/build/libs/spring-petclinic-3.3.0.jar /app/app.jar
+WORKDIR /app
+RUN java -Dspring.context.checkpoint=onRefresh -XX:CRaCCheckpointTo=/checkpoint -jar /app/app.jar
+
+FROM bellsoft/liberica-runtime-container:jre-crac-slim as runner
+
+ENTRYPOINT java -XX:CRaCRestoreFrom=/checkpoint
+COPY --from=optimizer /app/app.jar /app/app.jar
+COPY --from=optimizer /checkpoint /checkpoint
+```
+```docker {11,12}
+# syntax=docker/dockerfile:1-labs
+FROM bellsoft/liberica-runtime-container:jdk-musl as builder
+
+COPY . /app
+RUN cd /app && ./gradlew build -xtest
+
+FROM bellsoft/liberica-runtime-container:jre-crac-slim as optimizer
+
+COPY --from=builder /app/build/libs/spring-petclinic-3.3.0.jar /app/app.jar
+WORKDIR /app
+RUN --security=insecure java -Dspring.context.checkpoint=onRefresh \
+  -XX:CRaCCheckpointTo=/checkpoint -jar /app/app.jar
+
+FROM bellsoft/liberica-runtime-container:jre-crac-slim as runner
+
+ENTRYPOINT java -XX:CRaCRestoreFrom=/checkpoint
+COPY --from=optimizer /app/app.jar /app/app.jar
+COPY --from=optimizer /checkpoint /checkpoint
+```
+```docker {11,12}
+# syntax=docker/dockerfile:1-labs
+FROM bellsoft/liberica-runtime-container:jdk-musl as builder
+
+COPY . /app
+RUN cd /app && ./gradlew build -xtest
+
+FROM bellsoft/liberica-runtime-container:jre-crac-slim as optimizer
+
+COPY --from=builder /app/build/libs/spring-petclinic-3.3.0.jar /app/app.jar
+WORKDIR /app
+RUN --security=insecure java -Dspring.context.checkpoint=onRefresh \
+  -XX:CRaCCheckpointTo=/checkpoint -jar /app/app.jar || true
+
+FROM bellsoft/liberica-runtime-container:jre-crac-slim as runner
+
+ENTRYPOINT java -XX:CRaCRestoreFrom=/checkpoint
+COPY --from=optimizer /app/app.jar /app/app.jar
+COPY --from=optimizer /checkpoint /checkpoint
+```
+````
+
+
+---
+
+```bash
+docker buildx create --buildkitd-flags '--allow-insecure-entitlement security.insecure' --name insecure-builder
+docker buildx use insecure-builder
+docker buildx build --allow security.insecure -f Dockerfile.crac -t pet-crac --output type=docker .
+docker run --rm -it --privileged pet-crac
+```

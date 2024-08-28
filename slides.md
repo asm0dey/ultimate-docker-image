@@ -893,7 +893,7 @@ Let's try to fix it with arcane magic
 FROM bellsoft/liberica-runtime-container:jdk-musl as builder
 
 COPY . /app
-RUN cd /app && ./gradlew build
+RUN cd /app && ./gradlew build -xtest
 
 FROM bellsoft/liberica-runtime-container:jre-crac-slim as optimizer
 
@@ -971,9 +971,127 @@ COPY --from=optimizer /checkpoint /checkpoint
 
 ---
 
+# And this is not all!
+
+Did you hear about `buildx`?
+
+````md magic-move
+```bash {1,2|3}
+docker buildx create --buildkitd-flags \
+    '--allow-insecure-entitlement security.insecure' \
+    --name insecure-builder
+```
 ```bash
-docker buildx create --buildkitd-flags '--allow-insecure-entitlement security.insecure' --name insecure-builder
 docker buildx use insecure-builder
-docker buildx build --allow security.insecure -f Dockerfile.crac -t pet-crac --output type=docker .
+```
+```bash {1|2|3,4}
+docker buildx build \
+    --allow security.insecure \
+    -f Dockerfile.crac \
+    -t pet-crac --output type=docker .
+```
+```bash
 docker run --rm -it --privileged pet-crac
 ```
+```plain  {all|4}
+Restarting Spring-managed lifecycle beans after JVM restore
+HikariPool-1 - Thread starvation or clock leap detected (housekeeper delta=1d19h37m42s102ms798µs806ns).
+Tomcat started on port 8080 (http) with context path '/'
+Restored PetClinicApplication in 0.186 seconds (process running for 0.19)
+```
+````
+
+---
+
+# Is it a good solution?
+
+It depends
+
+<v-clicks>
+
+* If "It Works" is enough for you <span v-click=2>-> **YES**</span>
+* If you need more predictable and maintanable thing <span v-click=4>-> **NO**</span>
+
+</v-clicks>
+
+---
+
+# How to make it better?
+
+<v-clicks depth="2">
+
+1. Build JAR (in docker or not)
+2. Create new image that will run the JAR with CRaC arguments in `ENTRYPOINT`
+3. Run the container with capabilities:
+    1. CAP_SYS_PTRACE
+    2. CAP_CHECKPOINT_RESTORE
+4. Container will run and stop
+5. Commit the container like
+    ```bash
+    docker commit container-id new-tag
+    ```
+
+</v-clicks>
+
+---
+layout: two-cols
+---
+
+# Pros and Cons
+
+## Pros:
+
+1. Does not require arcane magic
+2. Works more predictably
+3. Does not depend on unstable features
+4. Does not require privileged containers in 
+
+::right::
+
+# <br/>
+
+## Cons:
+
+1. Organization-specific
+2. Requires more steps
+
+---
+layout: statement
+---
+
+# And now we have all flavours of ultimate docker images!
+
+---
+
+# Quick summary?
+
+1. Use layers for faster deployment
+2. Use CDS for faster startup without many compromises
+3. Use CRaC for a *lightning-fast* startup (with compromises)
+
+---
+layout: two-cols-header
+---
+
+# Thank you!
+
+::left::
+
+Find me @
+
+- <logos-twitter /> asm0di0
+- <logos-mastodon-icon /> @asm0dey@fosstodon.org
+- <logos-google-gmail /> me@asm0dey.site
+- <logos-linkedin-icon /> asm0dey
+- <logos-telegram /> asm0dey
+- <logos-whatsapp-icon /> asm0dey
+- <skill-icons-instagram /> asm0dey
+- <logos-facebook /> asm0dey
+
+::right::
+
+<img src="/news.png" class="invert rounded self-center"/>
+
+---
+layout: end
+---

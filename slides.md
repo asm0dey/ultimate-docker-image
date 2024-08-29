@@ -842,9 +842,13 @@ layout: statement
 
 CRaC: Coordinated Restore at Checkpoint
 
+> The CRaC (Coordinated Restore at Checkpoint) Project researches coordination of Java programs with mechanisms to checkpoint (make an image of, snapshot) a Java instance while it is executing. Restoring from the image could be a solution to some of the problems with the start-up and warm-up times. The primary aim of the Project is to develop a new standard mechanism-agnostic API to notify Java programs about the checkpoint and restore events. Other research activities will include, but will not be limited to, integration with existing checkpoint/restore mechanisms and development of new ones, changes to JVM and JDK to make images smaller and ensure they are correct.
+
+https://openjdk.org/projects/crac/
+
 ---
 
-In a perfect world ot should be:
+# In a perfect world it should be:
 
 ```docker {6,12|9,10|14-16}
 FROM bellsoft/liberica-runtime-container:jdk-musl as builder
